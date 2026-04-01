@@ -51,17 +51,17 @@ function generateHistoricalRates(dayIndex: number, totalDays: number) {
   let solTrend: number;
 
   if (dayIndex < 30) {
-    fundingBase = 0.00015; // Bullish funding
-    solTrend = 1.05; // SOL trending up
+    fundingBase = 0.00008; // Moderate bullish funding (~7% ann)
+    solTrend = 1.03; // SOL trending up
   } else if (dayIndex < 50) {
-    fundingBase = 0.00005; // Low funding
+    fundingBase = 0.00003; // Low funding (~2.6% ann)
     solTrend = 1.0; // Flat
   } else if (dayIndex < 65) {
-    fundingBase = -0.00003; // Negative funding
+    fundingBase = -0.00002; // Slightly negative funding
     solTrend = 0.97; // SOL declining
   } else {
-    fundingBase = 0.00018; // Strong funding
-    solTrend = 1.08; // SOL pumping
+    fundingBase = 0.00010; // Good funding (~8.7% ann)
+    solTrend = 1.05; // SOL recovering
   }
 
   // Add noise
@@ -76,8 +76,8 @@ function generateHistoricalRates(dayIndex: number, totalDays: number) {
     usdcUtilization: 0.6 + (fundingBase > 0 ? 0.15 : -0.05) + noise() * 0.1,
   };
 
-  // Lending rates correlated with utilization
-  const baseLendingApy = 0.08 + regimeSignals.usdcUtilization * 0.08;
+  // Lending rates correlated with utilization (calibrated to real-world Solana rates)
+  const baseLendingApy = 0.04 + regimeSignals.usdcUtilization * 0.05;
   const lendingRates: ProtocolRate[] = [
     { protocol: Protocol.DRIFT, name: "Drift", depositApy: baseLendingApy * 1.1 + noise() * 0.01, utilization: regimeSignals.usdcUtilization + noise() * 0.05, totalDeposits: 85e6, riskScore: 15, timestamp: 0 },
     { protocol: Protocol.KAMINO, name: "Kamino", depositApy: baseLendingApy * 1.0 + noise() * 0.01, utilization: regimeSignals.usdcUtilization - 0.02 + noise() * 0.05, totalDeposits: 120e6, riskScore: 20, timestamp: 0 },
@@ -153,9 +153,10 @@ async function runBacktest() {
       const reaperDecision = reaper.analyze(fundingSnapshot, reaperCapital, oracleDecision.regime);
 
       // Calculate hourly funding yield (only if position would be open)
+      // Apply 80% efficiency (slippage, fees, imperfect hedge timing)
       let fundingYield = 0;
       if (reaperDecision.action === "OPEN" || reaperDecision.action === "HOLD") {
-        fundingYield = reaperCapital * Math.max(0, fundingSnapshot.currentRate);
+        fundingYield = reaperCapital * Math.max(0, fundingSnapshot.currentRate) * 0.80;
       }
 
       // Update NAV
